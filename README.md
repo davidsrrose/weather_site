@@ -1,2 +1,2 @@
 # weather_site
-Website to pull &amp; display weather.gov hourly data, display in a mobile-friendly and modern UI
+Website to pull hourly weather data from weather.gov API, display in a mobile-friendly and modern UI.
