@@ -8,15 +8,19 @@ This repository is a POC monorepo for ingesting weather data and presenting it i
 
 ```text
 .
-├── backend/                # FastAPI service, ingestion code, and backend deps
-│   ├── src/app/            # Application package (API routes + core helpers)
+├── backend/                # Website backend, 100% python
+│   ├── src/                # Python source root
+│   │   └── fastapi_app/    # Backend FastAPI application package
+│   │       ├── routes/     # FastAPI route modules (HTTP endpoints)
+│   │       └── services/   # App services + infrastructure helpers
 │   ├── config.py           # Non-secret runtime config defaults
-│   ├── pyproject.toml      # Backend Python project config + dependencies
-│   └── uv.lock             # Backend locked dependency versions
+│   └── README.md           # Backend readme
 ├── frontend/               # Vite + React + TypeScript client app
 ├── docs/                   # Project docs
 ├── AGENTS.md               # Contributor guidance for Python/code style
 ├── Makefile                # Dev, lint, and format command entrypoints
+├── pyproject.toml          # Repo Python project config + dependencies
+├── uv.lock                 # Locked Python dependency versions
 └── README.md               # Monorepo overview
 ```
 
@@ -24,7 +28,7 @@ This repository is a POC monorepo for ingesting weather data and presenting it i
 | Tool | Purpose | Install |
 | --- | --- | --- |
 | [Homebrew](https://brew.sh/) | Package manager | `/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"` |
-| [Python 3.13+](https://www.python.org/) | Runtime | `brew install python@3.13` |
+| [Python 3.13](https://www.python.org/) | Runtime | `brew install python@3.13` |
 | [Node.js 22+](https://nodejs.org/) | Frontend runtime + package ecosystem | `brew install node` |
 | [uv](https://astral.sh/uv/) | Virtual env + package manager | `brew install uv` |
 | [Git](https://git-scm.com/) | Version control | `brew install git` |
