@@ -15,7 +15,7 @@ From `backend/`:
 ## Run
 From `backend/`:
 1. Start the API server:
-   - `uv run uvicorn fastapi_app.main:app --reload --port 8000`
+   - `uv run uvicorn app.main:app --reload --port 8000`
 
 ## Verify (Ticket 2)
 From a second terminal:

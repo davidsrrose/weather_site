@@ -46,3 +46,23 @@ This repository is a POC monorepo for ingesting weather data and presenting it i
 
 ## Setup Docs
 Service-level setup instructions live in each subproject README.
+
+## Local Development
+Ports:
+- Backend API: `8000`
+- Frontend app: `5173`
+
+Commands:
+```bash
+# Option A: helper targets
+make dev-backend
+make dev-frontend
+
+# Option B: direct commands
+cd backend && uv run uvicorn app.main:app --reload --port 8000
+cd frontend && pnpm dev
+```
+
+API proxy:
+- Frontend Vite dev server proxies `/api/*` to `http://localhost:8000`
+- Browser call example: `http://localhost:5173/api/health`

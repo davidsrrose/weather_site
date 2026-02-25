@@ -1,11 +1,13 @@
 dev:
-	@echo "Starting backend and frontend dev environments..."
+	@echo "Run in two terminals:"
+	@echo "  Terminal 1: make dev-backend"
+	@echo "  Terminal 2: make dev-frontend"
 
 dev-backend:
-	@echo "Starting backend dev server on port 8000..."
+	cd backend && uv run uvicorn app.main:app --reload --port 8000
 
 dev-frontend:
-	@echo "Starting frontend dev server on port 5173..."
+	cd frontend && pnpm dev
 
 lint:
 	@echo "Running linters..."
