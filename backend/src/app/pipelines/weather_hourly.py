@@ -17,6 +17,16 @@ DEFAULT_HTTP_TIMEOUT_SECONDS = 15.0
 class WeatherHourlyPipelineError(RuntimeError):
     """Raised when upstream weather.gov payloads are invalid for the pipeline."""
 
+    def __init__(self, message: str, upstream_status: int | None = None) -> None:
+        """Initialize a weather hourly pipeline error.
+
+        Args:
+            message: Human-readable error message.
+            upstream_status: Optional HTTP status code from upstream service.
+        """
+        super().__init__(message)
+        self.upstream_status = upstream_status
+
 
 def parse_wind_speed_mph(wind_speed: str | None) -> int | None:
     """Parse a weather.gov wind speed string into integer mph.
@@ -112,6 +122,12 @@ def _get_json(client: httpx.Client, url: str) -> dict[str, Any]:
     try:
         response = client.get(url)
         response.raise_for_status()
+    except httpx.HTTPStatusError as exc:
+        status_code: int | None = exc.response.status_code if exc.response else None
+        raise WeatherHourlyPipelineError(
+            f"Upstream request failed for URL: {url}",
+            upstream_status=status_code,
+        ) from exc
     except httpx.HTTPError as exc:
         raise WeatherHourlyPipelineError(f"Request failed for URL: {url}") from exc
 

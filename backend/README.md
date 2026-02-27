@@ -27,12 +27,18 @@ From a second terminal:
    - `curl -i http://127.0.0.1:8000/api/geocode/zip/10001`
 3. Geocode invalid ZIP:
    - `curl -i http://127.0.0.1:8000/api/geocode/zip/1234`
+4. Hourly weather for valid coords:
+   - `curl -i "http://127.0.0.1:8000/api/weather/hourly?lat=39.7555&lon=-105.2211"`
+5. Hourly weather for invalid coords:
+   - `curl -i "http://127.0.0.1:8000/api/weather/hourly?lat=95&lon=-105.2211"`
 
 Expected behavior:
 - Health returns `200` and `{"status":"ok"}`.
 - Valid ZIP returns `lat`, `lon`, `city`, `state`, and `source`.
 - Invalid ZIP returns `422` with an `invalid_zip` payload.
 - Repeated ZIP requests can return `source: "cache"` (see backend logs for cache hit/miss).
+- Valid weather coordinates return `generated_at`, `location`, and hourly `periods`.
+- Invalid weather coordinates return `422`.
 
 ## Pipeline Tests
 From `backend/`:
