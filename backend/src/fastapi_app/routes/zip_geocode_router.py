@@ -39,7 +39,7 @@ async def get_zip_geocode_endpoint(zip_code: str) -> dict[str, object]:
         result = await get_zip_geocode(
             zip_code=zip_code,
             duckdb_path=settings.duckdb_path,
-            zipcodestack_api_key=settings.zipcodestack_api_key,
+            zipcodebase_api_key=settings.zipcodebase_api_key,
         )
     except ZipGeocodeUpstreamError as exc:
         raise HTTPException(

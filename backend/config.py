@@ -14,17 +14,17 @@ class Config(BaseModel):
     backend_port: int = 8000
     frontend_port: int = 5173
     duckdb_path: str = ".data/weather.duckdb"
-    zipcodestack_api_key: str = Field(min_length=1)
+    zipcodebase_api_key: str = Field(min_length=1)
 
 
 @lru_cache(maxsize=1)
 def get_settings() -> Config:
     raw_config = {
-        "zipcodestack_api_key": os.getenv("ZIPCODESTACK_API_KEY", ""),
+        "zipcodebase_api_key": os.getenv("ZIPCODEBASE_API_KEY", ""),
     }
     try:
         return Config.model_validate(raw_config)
     except ValidationError as exc:
         raise RuntimeError(
-            "Invalid backend config. Set ZIPCODESTACK_API_KEY in backend/.env."
+            "Invalid backend config. Set ZIPCODEBASE_API_KEY in backend/.env."
         ) from exc

@@ -15,7 +15,7 @@ from fastapi_app.services.duckdb import ensure_duckdb_parent_dir
 logger = logging.getLogger("uvicorn.error")
 
 ZIP_CACHE_MAX_AGE = timedelta(days=30)
-ZIPCODESTACK_URL = "https://api.zipcodestack.com/v1/search"
+ZIPCODEBASE_SEARCH_URL = "https://app.zipcodebase.com/api/v1/search"
 
 
 class ZipGeocodeUpstreamError(Exception):
@@ -122,10 +122,10 @@ def _upsert_cached_zip(
     )
 
 
-def _parse_zipcodestack_payload(
+def _parse_zipcodebase_payload(
     zip_code: str, payload: dict[str, Any]
 ) -> ZipGeocodeResult:
-    """Normalize ZipCodeStack payload into API response model."""
+    """Normalize Zipcodebase payload into API response model."""
     results = payload.get("results", {})
     zip_matches = results.get(zip_code, [])
     if not isinstance(zip_matches, list) or not zip_matches:
@@ -135,7 +135,12 @@ def _parse_zipcodestack_payload(
     latitude = first_match.get("latitude")
     longitude = first_match.get("longitude")
     city = first_match.get("city")
-    state = first_match.get("state_code") or first_match.get("state")
+    state = (
+        first_match.get("state_code")
+        or first_match.get("state")
+        or first_match.get("province_code")
+        or first_match.get("province")
+    )
 
     if latitude is None or longitude is None or not city or not state:
         raise ZipGeocodeUpstreamError("Incomplete upstream geocode payload.")
@@ -153,11 +158,11 @@ def _parse_zipcodestack_payload(
 async def _fetch_upstream_zip_geocode(
     zip_code: str, api_key: str
 ) -> ZipGeocodeResult:
-    """Fetch geocode data from ZipCodeStack."""
+    """Fetch geocode data from Zipcodebase."""
     params = {"codes": zip_code, "country": "us", "apikey": api_key}
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
-            response = await client.get(ZIPCODESTACK_URL, params=params)
+            response = await client.get(ZIPCODEBASE_SEARCH_URL, params=params)
     except httpx.HTTPError as exc:
         raise ZipGeocodeUpstreamError("Upstream geocode request failed.") from exc
 
@@ -173,11 +178,11 @@ async def _fetch_upstream_zip_geocode(
             "Upstream geocode returned invalid JSON."
         ) from exc
 
-    return _parse_zipcodestack_payload(zip_code=zip_code, payload=payload)
+    return _parse_zipcodebase_payload(zip_code=zip_code, payload=payload)
 
 
 async def get_zip_geocode(
-    zip_code: str, duckdb_path: str, zipcodestack_api_key: str
+    zip_code: str, duckdb_path: str, zipcodebase_api_key: str
 ) -> ZipGeocodeResult:
     """Resolve ZIP geocode using cache-first strategy with upstream fallback."""
     resolved_db_path = ensure_duckdb_parent_dir(duckdb_path)
@@ -191,7 +196,7 @@ async def get_zip_geocode(
 
         logger.info("zip cache miss zip=%s fetching upstream", zip_code)
         upstream = await _fetch_upstream_zip_geocode(
-            zip_code=zip_code, api_key=zipcodestack_api_key
+            zip_code=zip_code, api_key=zipcodebase_api_key
         )
         _upsert_cached_zip(connection, upstream)
         return upstream

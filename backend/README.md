@@ -8,14 +8,16 @@ From repo root:
 From `backend/`:
 2. Create local env file:
    - `cp .env.sample .env`
-3. Set your API key in `.env`:
-   - `ZIPCODESTACK_API_KEY=your_real_key`
-4. Non-secret defaults (host/port/duckdb path) live in `config.py`
+3. Create a free Zipcodebase API key:
+   - `https://app.zipcodebase.com/register?plan=free`
+4. Set your API key in `.env`:
+   - `ZIPCODEBASE_API_KEY=your_real_key`
+5. Non-secret defaults (host/port/duckdb path) live in `config.py`
 
 ## Run
 From `backend/`:
 1. Start the API server:
-   - `uv run uvicorn app.main:app --reload --port 8000`
+   - `uv run uvicorn fastapi_app.main:app --reload --port 8000`
 
 ## Verify
 From a second terminal:

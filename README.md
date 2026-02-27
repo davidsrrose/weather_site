@@ -59,7 +59,7 @@ make dev-backend
 make dev-frontend
 
 # Option B: direct commands
-cd backend && uv run uvicorn app.main:app --reload --port 8000
+cd backend && uv run uvicorn fastapi_app.main:app --reload --port 8000
 cd frontend && pnpm dev
 ```
 
