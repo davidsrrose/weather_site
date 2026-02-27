@@ -14,7 +14,7 @@ from fastapi_app.services.duckdb import ensure_duckdb_parent_dir
 
 logger = logging.getLogger("uvicorn.error")
 
-FORECAST_CACHE_TTL = timedelta(minutes=10)
+DEFAULT_FORECAST_CACHE_TTL_MINUTES = 10
 
 
 def build_location_key(lat: float, lon: float) -> str:
@@ -50,9 +50,9 @@ def _ensure_forecast_snapshot_table(connection: duckdb.DuckDBPyConnection) -> No
     )
 
 
-def _is_fresh(generated_at: datetime) -> bool:
+def _is_fresh(generated_at: datetime, cache_ttl: timedelta) -> bool:
     """Return whether cached snapshot is still within TTL window."""
-    return _utc_now_naive() - generated_at < FORECAST_CACHE_TTL
+    return _utc_now_naive() - generated_at < cache_ttl
 
 
 def _read_cached_payload(
@@ -129,6 +129,7 @@ def get_or_refresh_hourly_forecast(
     lon: float,
     duckdb_path: str,
     fetch_periods: Callable[[float, float], list[dict[str, Any]]],
+    cache_ttl_minutes: int = DEFAULT_FORECAST_CACHE_TTL_MINUTES,
 ) -> dict[str, Any]:
     """Get hourly forecast payload using cache-first strategy.
 
@@ -137,10 +138,12 @@ def get_or_refresh_hourly_forecast(
         lon: Longitude.
         duckdb_path: Path to DuckDB file.
         fetch_periods: Function used to fetch fresh periods on cache miss/stale.
+        cache_ttl_minutes: Freshness window for cached snapshots.
 
     Returns:
         Stable weather payload with generated_at, location, and periods.
     """
+    cache_ttl = timedelta(minutes=cache_ttl_minutes)
     location_key = build_location_key(lat=lat, lon=lon)
     resolved_db_path = ensure_duckdb_parent_dir(duckdb_path)
     connection = duckdb.connect(str(resolved_db_path))
@@ -150,7 +153,7 @@ def get_or_refresh_hourly_forecast(
         cached = _read_cached_payload(connection, location_key)
         if cached is not None:
             cached_generated_at, cached_payload = cached
-            if _is_fresh(cached_generated_at):
+            if _is_fresh(cached_generated_at, cache_ttl=cache_ttl):
                 logger.info("cache_hit location_key=%s", location_key)
                 return cached_payload
             logger.info(
@@ -179,4 +182,3 @@ def get_or_refresh_hourly_forecast(
         return payload
     finally:
         connection.close()
-

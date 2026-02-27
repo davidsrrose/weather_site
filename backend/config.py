@@ -10,10 +10,21 @@ load_dotenv(BACKEND_DIR / ".env")
 
 
 class Config(BaseModel):
+    # Server runtime settings.
     backend_host: str = "0.0.0.0"
     backend_port: int = 8000
     frontend_port: int = 5173
+
+    # Local storage paths and cache freshness controls.
     duckdb_path: str = ".data/weather.duckdb"
+    forecast_cache_ttl_minutes: int = Field(default=10, ge=1)
+    zip_geocode_cache_ttl_days: int = Field(default=30, ge=1)
+
+    # Upstream request behavior tuning.
+    weather_hourly_http_timeout_seconds: float = Field(default=15.0, gt=0)
+    zip_geocode_http_timeout_seconds: float = Field(default=10.0, gt=0)
+
+    # External API credentials (required secrets).
     zipcodebase_api_key: str = Field(min_length=1)
 
 

@@ -190,17 +190,22 @@ def fetch_hourly_periods(
 
 
 @dlt.resource(name="weather_hourly_periods")
-def weather_hourly_resource(lat: float, lon: float) -> Iterable[dict[str, Any]]:
+def weather_hourly_resource(
+    lat: float,
+    lon: float,
+    http_timeout_seconds: float = DEFAULT_HTTP_TIMEOUT_SECONDS,
+) -> Iterable[dict[str, Any]]:
     """Yield normalized weather.gov hourly period records for one coordinate pair.
 
     Args:
         lat: Latitude.
         lon: Longitude.
+        http_timeout_seconds: HTTP timeout for weather.gov requests.
 
     Yields:
         Normalized hourly period dictionaries.
     """
-    with httpx.Client(timeout=DEFAULT_HTTP_TIMEOUT_SECONDS) as client:
+    with httpx.Client(timeout=http_timeout_seconds) as client:
         rows: list[dict[str, Any]] = fetch_hourly_periods(lat=lat, lon=lon, client=client)
 
     for row in rows:
@@ -208,14 +213,23 @@ def weather_hourly_resource(lat: float, lon: float) -> Iterable[dict[str, Any]]:
 
 
 @dlt.source(name="weather_hourly")
-def weather_hourly_source(lat: float, lon: float) -> Iterable[dict[str, Any]]:
+def weather_hourly_source(
+    lat: float,
+    lon: float,
+    http_timeout_seconds: float = DEFAULT_HTTP_TIMEOUT_SECONDS,
+) -> Iterable[dict[str, Any]]:
     """Create the weather hourly dlt source.
 
     Args:
         lat: Latitude.
         lon: Longitude.
+        http_timeout_seconds: HTTP timeout for weather.gov requests.
 
     Returns:
         dlt resource configured for the provided coordinates.
     """
-    return weather_hourly_resource(lat=lat, lon=lon)
+    return weather_hourly_resource(
+        lat=lat,
+        lon=lon,
+        http_timeout_seconds=http_timeout_seconds,
+    )

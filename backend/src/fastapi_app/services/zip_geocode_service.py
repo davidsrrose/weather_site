@@ -14,7 +14,8 @@ from fastapi_app.services.duckdb import ensure_duckdb_parent_dir
 
 logger = logging.getLogger("uvicorn.error")
 
-ZIP_CACHE_MAX_AGE = timedelta(days=30)
+DEFAULT_ZIP_CACHE_TTL_DAYS = 30
+DEFAULT_ZIPCODEBASE_HTTP_TIMEOUT_SECONDS = 10.0
 ZIPCODEBASE_SEARCH_URL = "https://app.zipcodebase.com/api/v1/search"
 
 
@@ -59,13 +60,13 @@ def _ensure_zip_cache_table(connection: duckdb.DuckDBPyConnection) -> None:
     )
 
 
-def _is_fresh(fetched_at: datetime) -> bool:
+def _is_fresh(fetched_at: datetime, zip_cache_max_age: timedelta) -> bool:
     """Return whether a cached row is still within max cache age."""
-    return _utc_now_naive() - fetched_at < ZIP_CACHE_MAX_AGE
+    return _utc_now_naive() - fetched_at < zip_cache_max_age
 
 
 def _read_cached_zip(
-    connection: duckdb.DuckDBPyConnection, zip_code: str
+    connection: duckdb.DuckDBPyConnection, zip_code: str, zip_cache_max_age: timedelta
 ) -> ZipGeocodeResult | None:
     """Read cached geocode data for a ZIP, if present and fresh."""
     row = connection.execute(
@@ -81,7 +82,7 @@ def _read_cached_zip(
         return None
 
     fetched_at: datetime = row[5]
-    if not _is_fresh(fetched_at):
+    if not _is_fresh(fetched_at, zip_cache_max_age=zip_cache_max_age):
         return None
 
     logger.info("zip cache hit zip=%s fetched_at=%s", zip_code, fetched_at.isoformat())
@@ -156,12 +157,12 @@ def _parse_zipcodebase_payload(
 
 
 async def _fetch_upstream_zip_geocode(
-    zip_code: str, api_key: str
+    zip_code: str, api_key: str, request_timeout_seconds: float
 ) -> ZipGeocodeResult:
     """Fetch geocode data from Zipcodebase."""
     params = {"codes": zip_code, "country": "us", "apikey": api_key}
     try:
-        async with httpx.AsyncClient(timeout=10.0) as client:
+        async with httpx.AsyncClient(timeout=request_timeout_seconds) as client:
             response = await client.get(ZIPCODEBASE_SEARCH_URL, params=params)
     except httpx.HTTPError as exc:
         raise ZipGeocodeUpstreamError("Upstream geocode request failed.") from exc
@@ -182,21 +183,43 @@ async def _fetch_upstream_zip_geocode(
 
 
 async def get_zip_geocode(
-    zip_code: str, duckdb_path: str, zipcodebase_api_key: str
+    zip_code: str,
+    duckdb_path: str,
+    zipcodebase_api_key: str,
+    zip_cache_ttl_days: int = DEFAULT_ZIP_CACHE_TTL_DAYS,
+    request_timeout_seconds: float = DEFAULT_ZIPCODEBASE_HTTP_TIMEOUT_SECONDS,
 ) -> ZipGeocodeResult:
-    """Resolve ZIP geocode using cache-first strategy with upstream fallback."""
+    """Resolve ZIP geocode using cache-first strategy with upstream fallback.
+
+    Args:
+        zip_code: ZIP code to geocode.
+        duckdb_path: Path to DuckDB file.
+        zipcodebase_api_key: Zipcodebase API key.
+        zip_cache_ttl_days: ZIP cache freshness in days.
+        request_timeout_seconds: Timeout for upstream geocode requests.
+
+    Returns:
+        Geocoded ZIP payload from cache or upstream.
+    """
+    zip_cache_max_age = timedelta(days=zip_cache_ttl_days)
     resolved_db_path = ensure_duckdb_parent_dir(duckdb_path)
     connection = duckdb.connect(str(resolved_db_path))
 
     try:
         _ensure_zip_cache_table(connection)
-        cached = _read_cached_zip(connection, zip_code)
+        cached = _read_cached_zip(
+            connection,
+            zip_code,
+            zip_cache_max_age=zip_cache_max_age,
+        )
         if cached is not None:
             return cached
 
         logger.info("zip cache miss zip=%s fetching upstream", zip_code)
         upstream = await _fetch_upstream_zip_geocode(
-            zip_code=zip_code, api_key=zipcodebase_api_key
+            zip_code=zip_code,
+            api_key=zipcodebase_api_key,
+            request_timeout_seconds=request_timeout_seconds,
         )
         _upsert_cached_zip(connection, upstream)
         return upstream

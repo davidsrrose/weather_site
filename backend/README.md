@@ -12,7 +12,12 @@ From `backend/`:
    - `https://app.zipcodebase.com/register?plan=free`
 4. Set your API key in `.env`:
    - `ZIPCODEBASE_API_KEY=your_real_key`
-5. Non-secret defaults (host/port/duckdb path) live in `config.py`
+5. Non-secret defaults live in `config.py`:
+   - `duckdb_path`
+   - `forecast_cache_ttl_minutes`
+   - `weather_hourly_http_timeout_seconds`
+   - `zip_geocode_cache_ttl_days`
+   - `zip_geocode_http_timeout_seconds`
 
 ## Run
 From `backend/`:

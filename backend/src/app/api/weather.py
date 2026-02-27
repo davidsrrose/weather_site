@@ -57,17 +57,26 @@ def _validate_longitude(longitude: float) -> None:
     )
 
 
-def fetch_hourly_periods_for_location(lat: float, lon: float) -> list[dict[str, Any]]:
+def fetch_hourly_periods_for_location(
+    lat: float,
+    lon: float,
+    http_timeout_seconds: float,
+) -> list[dict[str, Any]]:
     """Fetch normalized hourly periods through dlt source.
 
     Args:
         lat: Latitude.
         lon: Longitude.
+        http_timeout_seconds: HTTP timeout for weather.gov requests.
 
     Returns:
         Normalized hourly weather periods.
     """
-    source = weather_hourly_source(lat=lat, lon=lon)
+    source = weather_hourly_source(
+        lat=lat,
+        lon=lon,
+        http_timeout_seconds=http_timeout_seconds,
+    )
     resource = source.resources["weather_hourly_periods"]
     return list(resource)
 
@@ -87,7 +96,12 @@ def get_hourly_weather_payload(lat: float, lon: float) -> dict[str, Any]:
         lat=lat,
         lon=lon,
         duckdb_path=settings.duckdb_path,
-        fetch_periods=fetch_hourly_periods_for_location,
+        fetch_periods=lambda resolved_lat, resolved_lon: fetch_hourly_periods_for_location(
+            resolved_lat,
+            resolved_lon,
+            settings.weather_hourly_http_timeout_seconds,
+        ),
+        cache_ttl_minutes=settings.forecast_cache_ttl_minutes,
     )
 
 

@@ -104,14 +104,26 @@ class WeatherHourlyRouteTests(unittest.TestCase):
         """Two quick endpoint calls should fetch upstream periods once."""
         fetch_call_count = 0
 
-        def _fetch_periods(_: float, __: float) -> list[dict[str, object]]:
+        def _fetch_periods(
+            _: float,
+            __: float,
+            ___: float,
+        ) -> list[dict[str, object]]:
             nonlocal fetch_call_count
             fetch_call_count += 1
             return [{"startTime": "2026-02-27T16:00:00-07:00", "call": fetch_call_count}]
 
         with tempfile.TemporaryDirectory() as temp_dir:
             db_path = str(Path(temp_dir) / "weather.duckdb")
-            mock_settings = type("MockSettings", (), {"duckdb_path": db_path})()
+            mock_settings = type(
+                "MockSettings",
+                (),
+                {
+                    "duckdb_path": db_path,
+                    "weather_hourly_http_timeout_seconds": 15.0,
+                    "forecast_cache_ttl_minutes": 10,
+                },
+            )()
 
             with patch("app.api.weather.get_settings", return_value=mock_settings):
                 with patch(
