@@ -1,5 +1,8 @@
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useState } from "react"
 
+import { fetchJson } from "@/api/client"
+import { useGeocodeZip, useHourlyForecast } from "@/api/hooks"
+import type { HourlyPeriod } from "@/api/types"
 import { AppShell } from "@/components/AppShell"
 import { Button } from "@/components/ui/button"
 import {
@@ -23,25 +26,6 @@ type Location = {
 }
 
 type HealthState = "idle" | "loading" | "ok" | "error"
-type ZipLookupState = "idle" | "loading" | "ok" | "error"
-type ForecastState = "idle" | "loading" | "ok" | "error"
-
-type ZipGeocodeResponse = {
-  zip: string
-  lat: number
-  lon: number
-  city: string
-  state: string
-  source: string
-}
-
-type ForecastPeriod = {
-  number: number
-  startTime: string
-  temperature: number
-  temperatureUnit: string
-  shortForecast: string
-}
 
 const FAVORITES_STORAGE_KEY = "weather_site_favorites"
 const LAST_LOCATION_STORAGE_KEY = "weather_site_last_location"
@@ -121,28 +105,17 @@ function App() {
   })
 
   const [zipInput, setZipInput] = useState("")
-  const [zipLookupState, setZipLookupState] = useState<ZipLookupState>("idle")
   const [zipMessage, setZipMessage] = useState("Enter a ZIP code to set location.")
 
-  const [forecastState, setForecastState] = useState<ForecastState>("idle")
-  const [forecastMessage, setForecastMessage] = useState(
-    "Select a location to load forecast."
-  )
-  const [forecastPeriods, setForecastPeriods] = useState<ForecastPeriod[]>([])
-
-  const forecastRequestRef = useRef(0)
+  const geocodeZip = useGeocodeZip()
+  const hourlyForecast = useHourlyForecast(currentLocation?.lat, currentLocation?.lon)
 
   const checkHealth = async () => {
     setHealthState("loading")
     setHealthMessage("Checking /api/health ...")
 
     try {
-      const response = await fetch("/api/health")
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`)
-      }
-
-      const data = (await response.json()) as { status?: string }
+      const data = await fetchJson<{ status?: string }>("/api/health")
       if (data.status !== "ok") {
         throw new Error("Unexpected health payload.")
       }
@@ -157,62 +130,6 @@ function App() {
     }
   }
 
-  const fetchForecastForLocation = async (location: Location) => {
-    const requestId = ++forecastRequestRef.current
-    setForecastState("loading")
-    setForecastMessage(`Loading forecast for ${location.label}...`)
-
-    try {
-      const pointsResponse = await fetch(
-        `https://api.weather.gov/points/${location.lat},${location.lon}`
-      )
-      if (!pointsResponse.ok) {
-        throw new Error(`Points request failed: HTTP ${pointsResponse.status}`)
-      }
-
-      const pointsPayload = (await pointsResponse.json()) as {
-        properties?: { forecastHourly?: string }
-      }
-      const forecastUrl = pointsPayload.properties?.forecastHourly
-      if (!forecastUrl) {
-        throw new Error("Missing hourly forecast URL for coordinates.")
-      }
-
-      const forecastResponse = await fetch(forecastUrl)
-      if (!forecastResponse.ok) {
-        throw new Error(`Forecast request failed: HTTP ${forecastResponse.status}`)
-      }
-
-      const forecastPayload = (await forecastResponse.json()) as {
-        properties?: { periods?: ForecastPeriod[] }
-      }
-      const periods = forecastPayload.properties?.periods ?? []
-      if (periods.length === 0) {
-        throw new Error("No hourly forecast periods returned.")
-      }
-
-      if (requestId !== forecastRequestRef.current) {
-        return
-      }
-
-      setForecastPeriods(periods.slice(0, 6))
-      setForecastState("ok")
-      setForecastMessage(`Loaded hourly forecast for ${location.label}.`)
-    } catch (error) {
-      if (requestId !== forecastRequestRef.current) {
-        return
-      }
-
-      setForecastPeriods([])
-      setForecastState("error")
-      setForecastMessage(
-        error instanceof Error
-          ? error.message
-          : "Unable to load forecast for location."
-      )
-    }
-  }
-
   const applyLocation = (location: Location, statusMessage: string) => {
     setCurrentLocation(location)
     setLocationStatus(statusMessage)
@@ -222,7 +139,6 @@ function App() {
         JSON.stringify(location)
       )
     }
-    void fetchForecastForLocation(location)
   }
 
   const handleZipSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -230,21 +146,14 @@ function App() {
     const zip = zipInput.trim()
 
     if (!ZIP_REGEX.test(zip)) {
-      setZipLookupState("error")
       setZipMessage("ZIP must be exactly 5 digits.")
       return
     }
 
-    setZipLookupState("loading")
     setZipMessage(`Looking up ZIP ${zip}...`)
 
     try {
-      const response = await fetch(`/api/geocode/zip/${zip}`)
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`)
-      }
-
-      const data = (await response.json()) as ZipGeocodeResponse
+      const data = await geocodeZip.mutateAsync(zip)
       const location: Location = {
         kind: "zip",
         label: `${data.city}, ${data.state}`,
@@ -254,14 +163,10 @@ function App() {
       }
 
       applyLocation(location, `ZIP set to ${data.zip} (${data.source}).`)
-      setZipLookupState("ok")
       setZipMessage(`Loaded ${data.city}, ${data.state} from ZIP ${data.zip}.`)
     } catch (error) {
-      setZipLookupState("error")
       setZipMessage(
-        error instanceof Error
-          ? `ZIP lookup failed: ${error.message}`
-          : "ZIP lookup failed."
+        `ZIP lookup failed: ${error instanceof Error ? error.message : "unknown error"}`
       )
     }
   }
@@ -290,7 +195,6 @@ function App() {
 
   useEffect(() => {
     if (currentLocation) {
-      void fetchForecastForLocation(currentLocation)
       return
     }
 
@@ -319,6 +223,34 @@ function App() {
     )
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  const forecastPeriods: HourlyPeriod[] = (hourlyForecast.data?.periods ?? []).slice(
+    0,
+    6
+  )
+
+  const forecastMessage = (() => {
+    if (!currentLocation) {
+      return "Select a location to load forecast."
+    }
+    if (hourlyForecast.isLoading || hourlyForecast.isFetching) {
+      return `Loading forecast for ${currentLocation.label}...`
+    }
+    if (hourlyForecast.isError) {
+      return hourlyForecast.error?.message ?? "Unable to load forecast."
+    }
+    if (forecastPeriods.length === 0) {
+      return "No hourly forecast periods returned."
+    }
+    return `Loaded hourly forecast for ${currentLocation.label}.`
+  })()
+
+  const forecastMessageClass =
+    hourlyForecast.isError
+      ? "text-sm text-red-600"
+      : hourlyForecast.isSuccess
+        ? "text-sm text-emerald-600"
+        : "text-sm text-muted-foreground"
 
   return (
     <AppShell
@@ -396,13 +328,13 @@ function App() {
                     maxLength={5}
                     className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
                   />
-                  <Button disabled={zipLookupState === "loading"} type="submit">
-                    {zipLookupState === "loading" ? "Looking..." : "Use ZIP"}
+                  <Button disabled={geocodeZip.isPending} type="submit">
+                    {geocodeZip.isPending ? "Looking..." : "Use ZIP"}
                   </Button>
                 </div>
                 <p
                   className={
-                    zipLookupState === "error"
+                    geocodeZip.isError
                       ? "text-xs text-red-600"
                       : "text-xs text-muted-foreground"
                   }
@@ -413,27 +345,30 @@ function App() {
             </TabsContent>
 
             <TabsContent value="forecast" className="space-y-3">
-              <p
-                className={
-                  forecastState === "error"
-                    ? "text-sm text-red-600"
-                    : forecastState === "ok"
-                      ? "text-sm text-emerald-600"
-                      : "text-sm text-muted-foreground"
-                }
+              <p className={forecastMessageClass}>{forecastMessage}</p>
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => {
+                  void hourlyForecast.refetch()
+                }}
+                disabled={!currentLocation || hourlyForecast.isFetching}
               >
-                {forecastMessage}
-              </p>
+                {hourlyForecast.isFetching ? "Refreshing..." : "Refresh Forecast"}
+              </Button>
               {forecastPeriods.length > 0 ? (
                 <ul className="space-y-2">
-                  {forecastPeriods.map((period) => (
-                    <li key={period.number} className="rounded-md border p-3">
+                  {forecastPeriods.map((period, index) => (
+                    <li
+                      key={`${period.startTime}-${index}`}
+                      className="rounded-md border p-3"
+                    >
                       <p className="text-sm font-medium">
                         {new Date(period.startTime).toLocaleString()}
                       </p>
                       <p className="text-sm text-muted-foreground">
-                        {period.temperature}
-                        {period.temperatureUnit} - {period.shortForecast}
+                        {period.temperature ?? "--"}
+                        {period.temperatureUnit ?? ""} - {period.shortForecast ?? "N/A"}
                       </p>
                     </li>
                   ))}
