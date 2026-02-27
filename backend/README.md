@@ -34,6 +34,11 @@ Expected behavior:
 - Invalid ZIP returns `422` with an `invalid_zip` payload.
 - Repeated ZIP requests can return `source: "cache"` (see backend logs for cache hit/miss).
 
+## Pipeline Tests
+From `backend/`:
+1. Run weather hourly pipeline unit tests:
+   - `PYTHONPATH=src uv run python -m unittest discover -s tests -p 'test_*.py' -v`
+
 ## Notes
 - API runs on port `8000`.
 - DuckDB parent directory is created automatically if missing.
