@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Query
 
 from app.pipelines.weather_hourly import WeatherHourlyPipelineError, weather_hourly_source
+from app.services.forecast_snapshot_cache import get_or_refresh_hourly_forecast
+from config import get_settings
 
 router = APIRouter(prefix="/weather", tags=["weather"])
 
@@ -71,6 +72,25 @@ def fetch_hourly_periods_for_location(lat: float, lon: float) -> list[dict[str, 
     return list(resource)
 
 
+def get_hourly_weather_payload(lat: float, lon: float) -> dict[str, Any]:
+    """Get hourly weather payload with DuckDB snapshot caching.
+
+    Args:
+        lat: Latitude.
+        lon: Longitude.
+
+    Returns:
+        Stable payload with generated_at, location, and periods.
+    """
+    settings = get_settings()
+    return get_or_refresh_hourly_forecast(
+        lat=lat,
+        lon=lon,
+        duckdb_path=settings.duckdb_path,
+        fetch_periods=fetch_hourly_periods_for_location,
+    )
+
+
 @router.get("/hourly")
 def get_hourly_weather(
     lat: float = Query(..., description="Latitude"),
@@ -89,7 +109,7 @@ def get_hourly_weather(
     _validate_longitude(lon)
 
     try:
-        periods = fetch_hourly_periods_for_location(lat=lat, lon=lon)
+        payload = get_hourly_weather_payload(lat=lat, lon=lon)
     except WeatherHourlyPipelineError as exc:
         raise HTTPException(
             status_code=502,
@@ -100,9 +120,4 @@ def get_hourly_weather(
             },
         ) from exc
 
-    return {
-        "generated_at": datetime.now(UTC).isoformat(),
-        "location": {"lat": lat, "lon": lon},
-        "periods": periods,
-    }
-
+    return payload

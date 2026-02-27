@@ -39,6 +39,8 @@ Expected behavior:
 - Repeated ZIP requests can return `source: "cache"` (see backend logs for cache hit/miss).
 - Valid weather coordinates return `generated_at`, `location`, and hourly `periods`.
 - Invalid weather coordinates return `422`.
+- Repeated weather requests for same coords within 10 minutes return cached snapshots.
+- Weather cache logs include `cache_hit`, `cache_miss`, and `cache_stale_refresh`.
 
 ## Pipeline Tests
 From `backend/`:
