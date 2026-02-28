@@ -4,6 +4,7 @@ import { fetchJson } from "@/api/client"
 import { useGeocodeZip, useHourlyForecast } from "@/api/hooks"
 import { AppShell } from "@/components/AppShell"
 import { Dashboard } from "@/components/Dashboard"
+import type { TimelineWindow } from "@/components/HourlyTimeline"
 
 type LocationKind = "geo" | "favorite" | "zip"
 
@@ -93,6 +94,7 @@ function App() {
 
   const [zipInput, setZipInput] = useState("")
   const [zipMessage, setZipMessage] = useState("Enter a ZIP code to set location.")
+  const [timelineWindow, setTimelineWindow] = useState<TimelineWindow | null>(null)
 
   const geocodeZip = useGeocodeZip()
   const hourlyForecast = useHourlyForecast(currentLocation?.lat, currentLocation?.lon)
@@ -214,8 +216,12 @@ function App() {
   }, [])
 
   const nowPeriod = hourlyForecast.data?.periods?.[0] ?? null
+  const forecastPeriods = hourlyForecast.data?.periods ?? []
   const isForecastLoading = hourlyForecast.isLoading || hourlyForecast.isFetching
   const forecastErrorMessage = hourlyForecast.error?.message ?? "Unable to load forecast."
+  const timelineWindowSummary = timelineWindow
+    ? `Synced chart window: hours ${timelineWindow.windowStartIndex + 1}-${timelineWindow.endIndex}.`
+    : "Synced chart window: waiting for timeline data."
 
   return (
     <AppShell
@@ -245,6 +251,7 @@ function App() {
         isForecastLoading={isForecastLoading}
         isForecastError={hourlyForecast.isError}
         forecastErrorMessage={forecastErrorMessage}
+        periods={forecastPeriods}
         nowPeriod={nowPeriod}
         generatedAt={hourlyForecast.data?.generated_at ?? null}
         healthMessage={
@@ -254,6 +261,8 @@ function App() {
               ? "Checking API health..."
               : healthMessage
         }
+        timelineWindowSummary={timelineWindowSummary}
+        onTimelineWindowChange={setTimelineWindow}
       />
     </AppShell>
   )

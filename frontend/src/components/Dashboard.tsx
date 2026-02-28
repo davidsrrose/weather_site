@@ -1,6 +1,10 @@
 import type { FormEvent } from "react"
 
 import type { HourlyPeriod } from "@/api/types"
+import {
+  HourlyTimeline,
+  type TimelineWindow,
+} from "@/components/HourlyTimeline"
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -35,9 +39,12 @@ type DashboardProps = {
   isForecastLoading: boolean
   isForecastError: boolean
   forecastErrorMessage: string
+  periods: HourlyPeriod[]
   nowPeriod: HourlyPeriod | null
   generatedAt: string | null
   healthMessage: string
+  timelineWindowSummary: string
+  onTimelineWindowChange: (window: TimelineWindow) => void
 }
 
 function formatCoords(lat: number, lon: number): string {
@@ -141,9 +148,12 @@ export function Dashboard({
   isForecastLoading,
   isForecastError,
   forecastErrorMessage,
+  periods,
   nowPeriod,
   generatedAt,
   healthMessage,
+  timelineWindowSummary,
+  onTimelineWindowChange,
 }: DashboardProps) {
   return (
     <div className="space-y-4">
@@ -281,8 +291,9 @@ export function Dashboard({
               <div className="h-14 w-6 rounded bg-muted" />
             </div>
           ) : (
-            <div className="rounded-md border border-dashed p-6 text-sm text-muted-foreground">
-              Temperature trend graph will be rendered here.
+            <div className="space-y-3 rounded-md border border-dashed p-6 text-sm text-muted-foreground">
+              <p>Temperature trend graph will be rendered here.</p>
+              <p>{timelineWindowSummary}</p>
             </div>
           )}
         </CardContent>
@@ -291,7 +302,9 @@ export function Dashboard({
       <Card className="min-h-[220px]">
         <CardHeader>
           <CardTitle>Timeline</CardTitle>
-          <CardDescription>Timeline container placeholder.</CardDescription>
+          <CardDescription>
+            Swipe horizontally or jump forward in 24/48 hour increments.
+          </CardDescription>
         </CardHeader>
         <CardContent>
           {isForecastLoading ? (
@@ -300,10 +313,14 @@ export function Dashboard({
               <div className="h-10 rounded bg-muted" />
               <div className="h-10 rounded bg-muted" />
             </div>
+          ) : isForecastError ? (
+            <p className="text-sm text-red-600">{forecastErrorMessage}</p>
           ) : (
-            <div className="rounded-md border border-dashed p-6 text-sm text-muted-foreground">
-              Hourly timeline view will be rendered here.
-            </div>
+            <HourlyTimeline
+              periods={periods}
+              windowSize={48}
+              onWindowChange={onTimelineWindowChange}
+            />
           )}
         </CardContent>
       </Card>
