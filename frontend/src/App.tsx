@@ -17,6 +17,7 @@ type Location = {
 }
 
 type HealthState = "idle" | "loading" | "ok" | "error"
+type ThemeMode = "light" | "dark"
 
 const FAVORITES_STORAGE_KEY = "weather_site_favorites"
 const LAST_LOCATION_STORAGE_KEY = "weather_site_last_location"
@@ -76,7 +77,17 @@ function loadStoredLocation(): Location | null {
   }
 }
 
+function loadThemeMode(): ThemeMode {
+  if (typeof window === "undefined") {
+    return "light"
+  }
+
+  const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches
+  return prefersDark ? "dark" : "light"
+}
+
 function App() {
+  const [themeMode, setThemeMode] = useState<ThemeMode>(() => loadThemeMode())
   const [healthState, setHealthState] = useState<HealthState>("idle")
   const [healthMessage, setHealthMessage] = useState("Not checked yet.")
 
@@ -185,6 +196,11 @@ function App() {
   }, [])
 
   useEffect(() => {
+    const root = document.documentElement
+    root.classList.toggle("dark", themeMode === "dark")
+  }, [themeMode])
+
+  useEffect(() => {
     if (currentLocation) {
       return
     }
@@ -217,7 +233,8 @@ function App() {
 
   const nowPeriod = hourlyForecast.data?.periods?.[0] ?? null
   const forecastPeriods = hourlyForecast.data?.periods ?? []
-  const isForecastLoading = hourlyForecast.isLoading || hourlyForecast.isFetching
+  const isForecastLoading = hourlyForecast.isLoading && !hourlyForecast.data
+  const isRefreshingForecast = hourlyForecast.isFetching && !isForecastLoading
   const forecastErrorMessage = hourlyForecast.error?.message ?? "Unable to load forecast."
   const timelineWindowStartIndex = timelineWindow?.windowStartIndex ?? 0
   const timelineWindowSize = timelineWindow?.windowSize ?? 48
@@ -226,6 +243,12 @@ function App() {
     <AppShell
       title="Weather Site"
       subtitle="Location-first weather dashboard optimized for mobile and desktop."
+      isDarkMode={themeMode === "dark"}
+      onToggleDarkMode={() => {
+        setThemeMode((currentMode) =>
+          currentMode === "dark" ? "light" : "dark"
+        )
+      }}
     >
       <Dashboard
         currentLocation={currentLocation}
@@ -246,7 +269,7 @@ function App() {
           void hourlyForecast.refetch()
         }}
         canRefreshForecast={Boolean(currentLocation)}
-        isRefreshingForecast={hourlyForecast.isFetching}
+        isRefreshingForecast={isRefreshingForecast}
         isForecastLoading={isForecastLoading}
         isForecastError={hourlyForecast.isError}
         forecastErrorMessage={forecastErrorMessage}

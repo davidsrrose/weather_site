@@ -1,4 +1,5 @@
 import type { FormEvent } from "react"
+import { RotateCcw } from "lucide-react"
 
 import type { HourlyPeriod } from "@/api/types"
 import { HourlyGraphPanel } from "@/components/HourlyGraphPanel"
@@ -14,6 +15,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
+import { Skeleton } from "@/components/ui/skeleton"
 
 type DashboardLocation = {
   label: string
@@ -49,36 +51,109 @@ type DashboardProps = {
   onTimelineWindowChange: (window: TimelineWindow) => void
 }
 
+type ForecastErrorStateProps = {
+  message: string
+  isRetrying: boolean
+  onRetry: () => void
+}
+
 function formatCoords(lat: number, lon: number): string {
   return `${lat.toFixed(4)}, ${lon.toFixed(4)}`
 }
 
-function renderNowPrimary(
-  isForecastLoading: boolean,
-  isForecastError: boolean,
-  forecastErrorMessage: string,
-  nowPeriod: HourlyPeriod | null
-) {
-  if (isForecastLoading) {
-    return (
-      <div className="animate-pulse space-y-3">
-        <div className="h-10 w-28 rounded bg-muted" />
-        <div className="h-4 w-40 rounded bg-muted" />
+function ForecastErrorState({
+  message,
+  isRetrying,
+  onRetry,
+}: ForecastErrorStateProps) {
+  return (
+    <div className="rounded-lg border border-destructive/40 bg-destructive/5 p-4">
+      <p className="text-sm font-medium text-destructive">
+        We couldn&apos;t load the forecast right now.
+      </p>
+      <p className="mt-1 text-xs text-muted-foreground">{message}</p>
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        className="mt-3"
+        onClick={onRetry}
+        disabled={isRetrying}
+      >
+        <RotateCcw className="h-3.5 w-3.5" />
+        {isRetrying ? "Retrying..." : "Retry"}
+      </Button>
+    </div>
+  )
+}
+
+function NowCardsSkeleton() {
+  return (
+    <div className="grid gap-3 sm:grid-cols-2">
+      <Card className="min-h-[170px]">
+        <CardHeader>
+          <Skeleton className="h-5 w-36" />
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <Skeleton className="h-12 w-24" />
+          <Skeleton className="h-4 w-40" />
+        </CardContent>
+      </Card>
+      <Card className="min-h-[170px]">
+        <CardHeader>
+          <Skeleton className="h-5 w-24" />
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <Skeleton className="h-4 w-full" />
+          <Skeleton className="h-4 w-4/5" />
+          <Skeleton className="h-4 w-3/5" />
+        </CardContent>
+      </Card>
+    </div>
+  )
+}
+
+function GraphPanelSkeleton() {
+  const barHeights = [44, 70, 58, 86, 52, 92, 64, 76, 48, 88, 60, 72]
+
+  return (
+    <div className="space-y-4">
+      <Skeleton className="h-10 w-full" />
+      <div className="grid h-52 grid-cols-12 items-end gap-2">
+        {barHeights.map((height, index) => (
+          <Skeleton
+            key={index}
+            className="w-full"
+            style={{ height }}
+          />
+        ))}
       </div>
-    )
-  }
+    </div>
+  )
+}
 
-  if (isForecastError) {
-    return <p className="text-sm text-red-600">{forecastErrorMessage}</p>
-  }
+function TimelineRowsSkeleton() {
+  return (
+    <div className="space-y-3">
+      {Array.from({ length: 4 }).map((_, index) => (
+        <div key={index} className="rounded-md border p-3">
+          <Skeleton className="h-4 w-24" />
+          <Skeleton className="mt-2 h-3 w-36" />
+          <Skeleton className="mt-3 h-3 w-full" />
+        </div>
+      ))}
+    </div>
+  )
+}
 
+function renderNowPrimary(nowPeriod: HourlyPeriod | null) {
   if (!nowPeriod) {
     return <p className="text-sm text-muted-foreground">No current period available.</p>
   }
 
   return (
     <div className="space-y-1">
-      <p className="text-5xl font-semibold tracking-tight">
+      <p className="text-4xl font-semibold tracking-tight sm:text-5xl">
         {nowPeriod.temperature ?? "--"}
         {nowPeriod.temperatureUnit ?? ""}
       </p>
@@ -89,21 +164,8 @@ function renderNowPrimary(
   )
 }
 
-function renderNowSecondary(
-  isForecastLoading: boolean,
-  isForecastError: boolean,
-  nowPeriod: HourlyPeriod | null
-) {
-  if (isForecastLoading) {
-    return (
-      <div className="animate-pulse space-y-3">
-        <div className="h-6 w-24 rounded bg-muted" />
-        <div className="h-6 w-20 rounded bg-muted" />
-      </div>
-    )
-  }
-
-  if (isForecastError || !nowPeriod) {
+function renderNowSecondary(nowPeriod: HourlyPeriod | null) {
+  if (!nowPeriod) {
     return <p className="text-sm text-muted-foreground">No weather details available.</p>
   }
 
@@ -160,24 +222,26 @@ export function Dashboard({
 }: DashboardProps) {
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-2">
-        <Button
-          type="button"
-          variant="outline"
-          className="min-w-0 flex-1 justify-start"
-          onClick={onToggleLocationControls}
-        >
-          <span className="truncate">
-            {currentLocation ? currentLocation.label : "Select location"}
-          </span>
-        </Button>
-        <Button
-          type="button"
-          onClick={onRefreshForecast}
-          disabled={!canRefreshForecast || isRefreshingForecast}
-        >
-          {isRefreshingForecast ? "Refreshing..." : "Refresh"}
-        </Button>
+      <div className="sticky top-0 z-20 rounded-xl border bg-background/95 p-2 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-background/80">
+        <div className="flex items-center gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            className="min-w-0 flex-1 justify-start"
+            onClick={onToggleLocationControls}
+          >
+            <span className="truncate">
+              {currentLocation ? currentLocation.label : "Select location"}
+            </span>
+          </Button>
+          <Button
+            type="button"
+            onClick={onRefreshForecast}
+            disabled={!canRefreshForecast || isRefreshingForecast}
+          >
+            {isRefreshingForecast ? "Refreshing..." : "Refresh"}
+          </Button>
+        </div>
       </div>
 
       {showLocationControls ? (
@@ -248,51 +312,53 @@ export function Dashboard({
         </Card>
       ) : null}
 
+      {isForecastError && !isForecastLoading ? (
+        <ForecastErrorState
+          message={forecastErrorMessage}
+          isRetrying={isRefreshingForecast}
+          onRetry={onRefreshForecast}
+        />
+      ) : null}
+
       <section className="space-y-2">
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+        <h2 className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
           Now
         </h2>
-        <div className="grid gap-3 sm:grid-cols-2">
-          <Card className="min-h-[170px]">
-            <CardHeader>
-              <CardTitle className="text-base">Current Temperature</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {renderNowPrimary(
-                isForecastLoading,
-                isForecastError,
-                forecastErrorMessage,
-                nowPeriod
-              )}
-            </CardContent>
-          </Card>
+        {isForecastLoading ? (
+          <NowCardsSkeleton />
+        ) : (
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Card className="min-h-[170px]">
+              <CardHeader>
+                <CardTitle className="text-base">Current Temperature</CardTitle>
+              </CardHeader>
+              <CardContent>{renderNowPrimary(nowPeriod)}</CardContent>
+            </Card>
 
-          <Card className="min-h-[170px]">
-            <CardHeader>
-              <CardTitle className="text-base">Conditions</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {renderNowSecondary(isForecastLoading, isForecastError, nowPeriod)}
-            </CardContent>
-          </Card>
-        </div>
+            <Card className="min-h-[170px]">
+              <CardHeader>
+                <CardTitle className="text-base">Conditions</CardTitle>
+              </CardHeader>
+              <CardContent>{renderNowSecondary(nowPeriod)}</CardContent>
+            </Card>
+          </div>
+        )}
       </section>
 
       <Card className="min-h-[220px]">
         <CardHeader>
           <CardTitle>Graph</CardTitle>
-          <CardDescription>Graph panel placeholder.</CardDescription>
+          <CardDescription>48-hour chart view synchronized with timeline.</CardDescription>
         </CardHeader>
         <CardContent>
           {isForecastLoading ? (
-            <div className="flex h-32 items-end gap-2 animate-pulse">
-              <div className="h-10 w-6 rounded bg-muted" />
-              <div className="h-16 w-6 rounded bg-muted" />
-              <div className="h-24 w-6 rounded bg-muted" />
-              <div className="h-12 w-6 rounded bg-muted" />
-              <div className="h-20 w-6 rounded bg-muted" />
-              <div className="h-14 w-6 rounded bg-muted" />
-            </div>
+            <GraphPanelSkeleton />
+          ) : isForecastError ? (
+            <ForecastErrorState
+              message={forecastErrorMessage}
+              isRetrying={isRefreshingForecast}
+              onRetry={onRefreshForecast}
+            />
           ) : (
             <HourlyGraphPanel
               periods={periods}
@@ -312,13 +378,13 @@ export function Dashboard({
         </CardHeader>
         <CardContent>
           {isForecastLoading ? (
-            <div className="space-y-2 animate-pulse">
-              <div className="h-10 rounded bg-muted" />
-              <div className="h-10 rounded bg-muted" />
-              <div className="h-10 rounded bg-muted" />
-            </div>
+            <TimelineRowsSkeleton />
           ) : isForecastError ? (
-            <p className="text-sm text-red-600">{forecastErrorMessage}</p>
+            <ForecastErrorState
+              message={forecastErrorMessage}
+              isRetrying={isRefreshingForecast}
+              onRetry={onRefreshForecast}
+            />
           ) : (
             <HourlyTimeline
               periods={periods}
