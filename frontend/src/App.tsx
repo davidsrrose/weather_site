@@ -219,9 +219,8 @@ function App() {
   const forecastPeriods = hourlyForecast.data?.periods ?? []
   const isForecastLoading = hourlyForecast.isLoading || hourlyForecast.isFetching
   const forecastErrorMessage = hourlyForecast.error?.message ?? "Unable to load forecast."
-  const timelineWindowSummary = timelineWindow
-    ? `Synced chart window: hours ${timelineWindow.windowStartIndex + 1}-${timelineWindow.endIndex}.`
-    : "Synced chart window: waiting for timeline data."
+  const timelineWindowStartIndex = timelineWindow?.windowStartIndex ?? 0
+  const timelineWindowSize = timelineWindow?.windowSize ?? 48
 
   return (
     <AppShell
@@ -261,7 +260,8 @@ function App() {
               ? "Checking API health..."
               : healthMessage
         }
-        timelineWindowSummary={timelineWindowSummary}
+        timelineWindowStartIndex={timelineWindowStartIndex}
+        timelineWindowSize={timelineWindowSize}
         onTimelineWindowChange={setTimelineWindow}
       />
     </AppShell>

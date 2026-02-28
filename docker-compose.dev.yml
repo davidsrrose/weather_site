@@ -1,0 +1,43 @@
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile.dev
+    working_dir: /workspace
+    env_file:
+      - ./backend/.env
+    environment:
+      WEATHER_DUCKDB_PATH: ${WEATHER_DUCKDB_PATH:-/workspace/.data/weather.duckdb}
+      PYTHONPATH: /workspace/backend:/workspace/backend/src
+    command: >
+      uvicorn fastapi_app.main:app
+      --host 0.0.0.0
+      --port 8000
+      --reload
+      --reload-dir /workspace/backend
+      --reload-dir /workspace/backend/src
+    volumes:
+      - ./backend:/workspace/backend
+      - ./.data:/workspace/.data
+    ports:
+      - "8000:8000"
+
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile.dev
+    working_dir: /workspace/frontend
+    environment:
+      CHOKIDAR_USEPOLLING: "true"
+      VITE_API_PROXY_TARGET: "http://backend:8000"
+    command: >
+      sh -c "if [ ! -d node_modules/.pnpm ]; then pnpm install --frozen-lockfile; fi &&
+      pnpm dev --host 0.0.0.0 --port 5173"
+    volumes:
+      - ./frontend:/workspace/frontend
+      - frontend_node_modules:/workspace/frontend/node_modules
+    ports:
+      - "5173:5173"
+
+volumes:
+  frontend_node_modules:

@@ -30,9 +30,32 @@ class Config(BaseModel):
 
 @lru_cache(maxsize=1)
 def get_settings() -> Config:
-    raw_config = {
-        "zipcodebase_api_key": os.getenv("ZIPCODEBASE_API_KEY", ""),
-    }
+    raw_config: dict[str, str] = {}
+
+    duckdb_path = os.getenv("WEATHER_DUCKDB_PATH")
+    if duckdb_path:
+        raw_config["duckdb_path"] = duckdb_path
+
+    forecast_cache_ttl_minutes = os.getenv("FORECAST_CACHE_TTL_MINUTES")
+    if forecast_cache_ttl_minutes:
+        raw_config["forecast_cache_ttl_minutes"] = forecast_cache_ttl_minutes
+
+    weather_hourly_http_timeout_seconds = os.getenv("WEATHER_HOURLY_HTTP_TIMEOUT_SECONDS")
+    if weather_hourly_http_timeout_seconds:
+        raw_config["weather_hourly_http_timeout_seconds"] = weather_hourly_http_timeout_seconds
+
+    zip_geocode_cache_ttl_days = os.getenv("ZIP_GEOCODE_CACHE_TTL_DAYS")
+    if zip_geocode_cache_ttl_days:
+        raw_config["zip_geocode_cache_ttl_days"] = zip_geocode_cache_ttl_days
+
+    zip_geocode_http_timeout_seconds = os.getenv("ZIP_GEOCODE_HTTP_TIMEOUT_SECONDS")
+    if zip_geocode_http_timeout_seconds:
+        raw_config["zip_geocode_http_timeout_seconds"] = zip_geocode_http_timeout_seconds
+
+    zipcodebase_api_key = os.getenv("ZIPCODEBASE_API_KEY")
+    if zipcodebase_api_key:
+        raw_config["zipcodebase_api_key"] = zipcodebase_api_key
+
     try:
         return Config.model_validate(raw_config)
     except ValidationError as exc:

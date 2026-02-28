@@ -1,6 +1,7 @@
 import type { FormEvent } from "react"
 
 import type { HourlyPeriod } from "@/api/types"
+import { HourlyGraphPanel } from "@/components/HourlyGraphPanel"
 import {
   HourlyTimeline,
   type TimelineWindow,
@@ -43,7 +44,8 @@ type DashboardProps = {
   nowPeriod: HourlyPeriod | null
   generatedAt: string | null
   healthMessage: string
-  timelineWindowSummary: string
+  timelineWindowStartIndex: number
+  timelineWindowSize: number
   onTimelineWindowChange: (window: TimelineWindow) => void
 }
 
@@ -152,7 +154,8 @@ export function Dashboard({
   nowPeriod,
   generatedAt,
   healthMessage,
-  timelineWindowSummary,
+  timelineWindowStartIndex,
+  timelineWindowSize,
   onTimelineWindowChange,
 }: DashboardProps) {
   return (
@@ -291,10 +294,11 @@ export function Dashboard({
               <div className="h-14 w-6 rounded bg-muted" />
             </div>
           ) : (
-            <div className="space-y-3 rounded-md border border-dashed p-6 text-sm text-muted-foreground">
-              <p>Temperature trend graph will be rendered here.</p>
-              <p>{timelineWindowSummary}</p>
-            </div>
+            <HourlyGraphPanel
+              periods={periods}
+              windowStartIndex={timelineWindowStartIndex}
+              windowSize={timelineWindowSize}
+            />
           )}
         </CardContent>
       </Card>

@@ -1,0 +1,19 @@
+FROM python:3.13-slim
+
+WORKDIR /app
+
+COPY --from=ghcr.io/astral-sh/uv:0.10.7 /uv /uvx /bin/
+
+COPY pyproject.toml uv.lock README.md ./
+
+RUN set -eux; \
+    for attempt in 1 2 3 4 5; do \
+      uv sync --frozen --no-dev --no-install-project && break; \
+      if [ "$attempt" -eq 5 ]; then \
+        exit 1; \
+      fi; \
+      echo "uv sync failed (attempt ${attempt}), retrying..."; \
+      sleep 3; \
+    done
+
+ENV PATH="/app/.venv/bin:${PATH}"

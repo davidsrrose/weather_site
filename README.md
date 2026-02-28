@@ -29,7 +29,7 @@ This repository is a POC monorepo for ingesting weather data and presenting it i
 | --- | --- | --- |
 | [Homebrew](https://brew.sh/) | Package manager | `/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"` |
 | [Python 3.13](https://www.python.org/) | Runtime | `brew install python@3.13` |
-| [Node.js 22+](https://nodejs.org/) | Frontend runtime + package ecosystem | `brew install node` |
+| [Node.js 24+](https://nodejs.org/) | Frontend runtime + package ecosystem | `brew install node` |
 | [uv](https://astral.sh/uv/) | Virtual env + package manager | `brew install uv` |
 | [Git](https://git-scm.com/) | Version control | `brew install git` |
 | [FastAPI](https://fastapi.tiangolo.com/) | Backend API framework | `n/a, managed by uv` |
@@ -52,17 +52,58 @@ Ports:
 - Backend API: `8000`
 - Frontend app: `5173`
 
-Commands:
+Preferred (non-docker, fastest while coding):
 ```bash
-# Option A: helper targets
-make dev-backend
-make dev-frontend
-
-# Option B: direct commands
-cd backend && uv run uvicorn fastapi_app.main:app --reload --port 8000
-cd frontend && pnpm dev
+make dev
 ```
 
-API proxy:
-- Frontend Vite dev server proxies `/api/*` to `http://localhost:8000`
-- Browser call example: `http://localhost:5173/api/health`
+What it does:
+- Starts backend + frontend locally with hot reload
+- Opens `http://localhost:5173` automatically when ready
+- Frontend API proxy target: `http://localhost:8000`
+- Frontend config var: `VITE_API_PROXY_TARGET`
+
+Docker dev mode:
+```bash
+make dev-docker
+```
+
+What it does:
+- Builds and starts Dockerized backend + frontend dev services
+- Enables hot reload for both services
+- Opens `http://localhost:5173` automatically when ready
+- Frontend API proxy target: `http://backend:8000` (Docker service name)
+- Frontend config var: `VITE_API_PROXY_TARGET`
+- Stays attached to logs; `Ctrl+C` automatically runs cleanup (`docker compose ... down`)
+
+Prerequisite:
+- Create `backend/.env` from `backend/.env.sample` and set `ZIPCODEBASE_API_KEY`
+
+Stop Docker dev services:
+```bash
+make dev-docker-down
+```
+
+## Docker (Single Command)
+Run one command from repo root to build and launch the full app (API + UI served by FastAPI):
+
+```bash
+docker build -t weather-site:local .
+docker run --rm -p 8000:8000 \
+  -e ZIPCODEBASE_API_KEY=your_real_key \
+  -e WEATHER_DUCKDB_PATH=/app/.data/weather.duckdb \
+  weather-site:local
+```
+
+Open:
+- `http://localhost:8000`
+- `http://localhost:8000/api/health`
+
+Optional env vars:
+- `ZIPCODEBASE_API_KEY` (required)
+- `WEATHER_DUCKDB_PATH` (optional, defaults to `.data/weather.duckdb`)
+
+## CI Image Publish
+GitHub Actions workflow publishes container images to GHCR on push to `main`:
+- tags: `latest`
+- tags: short commit `sha`

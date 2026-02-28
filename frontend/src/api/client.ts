@@ -33,6 +33,22 @@ function normalizeErrorMessage(payload: unknown, fallback: string): string {
   return fallback
 }
 
+function buildFallbackMessage(url: string, response: Response): string {
+  const endpoint = (() => {
+    try {
+      return new URL(url, window.location.origin).pathname
+    } catch {
+      return url
+    }
+  })()
+
+  if (response.status >= 500) {
+    return `Server error (${response.status}) from ${endpoint}. Check backend logs and try again.`
+  }
+
+  return `Request to ${endpoint} failed with HTTP ${response.status}`
+}
+
 export async function fetchJson<T>(
   url: string,
   options?: RequestInit
@@ -47,7 +63,7 @@ export async function fetchJson<T>(
   }
 
   if (!response.ok) {
-    const fallbackMessage = `Request failed with HTTP ${response.status}`
+    const fallbackMessage = buildFallbackMessage(url, response)
     const message = normalizeErrorMessage(payload, fallbackMessage)
     throw new ApiError(message, response.status)
   }

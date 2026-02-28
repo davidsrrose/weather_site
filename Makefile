@@ -1,16 +1,29 @@
+.PHONY: dev dev-docker dev-docker-down
+
 dev:
-	@echo "Run in two terminals:"
-	@echo "  Terminal 1: make dev-backend"
-	@echo "  Terminal 2: make dev-frontend"
+	@test -f backend/.env || (echo "Missing backend/.env. Copy backend/.env.sample and set ZIPCODEBASE_API_KEY."; exit 1)
+	@command -v uv >/dev/null 2>&1 || (echo "uv is required for local dev."; exit 1)
+	@command -v pnpm >/dev/null 2>&1 || (echo "pnpm is required for local dev."; exit 1)
+	@echo "Starting backend (8000) and frontend (5173) with hot reload..."
+	@(cd backend && uv run uvicorn fastapi_app.main:app --reload --port 8000) & BACKEND_PID=$$!; \
+	(pnpm -C frontend dev --host 0.0.0.0 --port 5173) & FRONTEND_PID=$$!; \
+	trap 'kill $$BACKEND_PID $$FRONTEND_PID >/dev/null 2>&1 || true' INT TERM EXIT; \
+	echo "Waiting for frontend at http://localhost:5173 ..."; \
+	until curl -sSf http://localhost:5173 >/dev/null 2>&1; do sleep 1; done; \
+	(command -v open >/dev/null 2>&1 && open http://localhost:5173) || (command -v xdg-open >/dev/null 2>&1 && xdg-open http://localhost:5173 >/dev/null 2>&1) || true; \
+	echo "Local dev is up. Press Ctrl+C to stop."; \
+	wait $$BACKEND_PID $$FRONTEND_PID
 
-dev-backend:
-	cd backend && uv run uvicorn fastapi_app.main:app --reload --port 8000
+dev-docker:
+	@test -f backend/.env || (echo "Missing backend/.env. Copy backend/.env.sample and set ZIPCODEBASE_API_KEY."; exit 1)
+	@set -e; \
+	docker compose -f docker-compose.dev.yml up --build -d; \
+	echo "Waiting for frontend at http://localhost:5173 ..."; \
+	until curl -sSf http://localhost:5173 >/dev/null 2>&1; do sleep 1; done; \
+	(command -v open >/dev/null 2>&1 && open http://localhost:5173) || (command -v xdg-open >/dev/null 2>&1 && xdg-open http://localhost:5173 >/dev/null 2>&1) || true; \
+	echo "Docker dev stack is up. Press Ctrl+C to stop and clean up."; \
+	trap 'docker compose -f docker-compose.dev.yml down >/dev/null 2>&1 || true' INT TERM EXIT; \
+	docker compose -f docker-compose.dev.yml logs -f
 
-dev-frontend:
-	cd frontend && pnpm dev
-
-lint:
-	@echo "Running linters..."
-
-format:
-	@echo "Running formatters..."
+dev-docker-down:
+	docker compose -f docker-compose.dev.yml down
